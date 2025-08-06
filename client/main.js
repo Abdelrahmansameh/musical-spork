@@ -2,6 +2,7 @@ const SIGNALING_URL = 'wss://musical-spork.onrender.com';
 
 const square = document.getElementById('square');
 let color = 'red';
+let syncInterval;
 let room = prompt('Room code?');
 if (!room) {
   room = Math.random().toString(36).substr(2, 4);
@@ -18,6 +19,7 @@ ws.onopen = () => {
 
 const peer = new RTCPeerConnection();
 let dc;
+let initiator = false;
 
 peer.onicecandidate = ({ candidate }) => {
   if (candidate) {
@@ -25,10 +27,30 @@ peer.onicecandidate = ({ candidate }) => {
   }
 };
 
+function sendState() {
+  if (dc && dc.readyState === 'open') {
+    dc.send(JSON.stringify({ type: 'state', color }));
+  }
+}
+
 function setupDataChannel(channel) {
   dc = channel;
+  dc.onopen = () => {
+    sendState();
+    syncInterval = setInterval(sendState, 1000);
+  };
+  dc.onclose = () => clearInterval(syncInterval);
   dc.onmessage = (e) => {
-    if (e.data === 'toggle') toggle();
+    let msg;
+    try {
+      msg = JSON.parse(e.data);
+    } catch {
+      return;
+    }
+    if (msg.type === 'state') {
+      color = msg.color;
+      square.style.background = color;
+    }
   };
 }
 
@@ -37,11 +59,14 @@ peer.ondatachannel = (e) => setupDataChannel(e.channel);
 ws.onmessage = async (event) => {
   const msg = JSON.parse(event.data);
   if (msg.type === 'ready') {
-    dc = peer.createDataChannel('toggle');
-    setupDataChannel(dc);
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    ws.send(JSON.stringify({ type: 'signal', room, data: offer }));
+    initiator = msg.initiator;
+    if (initiator) {
+      dc = peer.createDataChannel('toggle');
+      setupDataChannel(dc);
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'signal', room, data: offer }));
+    }
   } else if (msg.type === 'signal') {
     if (msg.data.type === 'offer') {
       await peer.setRemoteDescription(msg.data);
@@ -49,7 +74,10 @@ ws.onmessage = async (event) => {
       await peer.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'signal', room, data: answer }));
     } else if (msg.data.type === 'answer') {
-      await peer.setRemoteDescription(msg.data);
+      // Avoid applying an answer twice in glare situations
+      if (peer.signalingState !== 'stable') {
+        await peer.setRemoteDescription(msg.data);
+      }
     } else if (msg.data.candidate) {
       await peer.addIceCandidate(msg.data);
     }
@@ -63,7 +91,5 @@ function toggle() {
 
 square.onclick = () => {
   toggle();
-  if (dc && dc.readyState === 'open') {
-    dc.send('toggle');
-  }
+  sendState();
 };
