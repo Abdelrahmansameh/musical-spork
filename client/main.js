@@ -43,7 +43,13 @@ ws.onclose = () => {
   showStatus('WebSocket closed.');
 };
 
-const peer = new RTCPeerConnection();
+// Replace RTCPeerConnection initialization with TURN/STUN servers
+const peer = new RTCPeerConnection({
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+  ]
+});
 let dc;
 let initiator = false;
 
