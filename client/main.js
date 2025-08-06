@@ -46,26 +46,70 @@ ws.onclose = () => {
 // Replace RTCPeerConnection initialization with TURN/STUN servers
 const peer = new RTCPeerConnection({
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
-  ]
+    { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+  ],
+  iceTransportPolicy: 'all',
+  iceCandidatePoolSize: 10,
+  iceCheckMinInterval: 500,
 });
 let dc;
 let initiator = false;
+
+let iceCandidateTimeout;
+let gatheringComplete = false;
 
 peer.onicecandidate = ({ candidate }) => {
   if (candidate) {
     showStatus('ICE candidate gathered. Sending to peer...');
     ws.send(JSON.stringify({ type: 'signal', room, data: candidate }));
+    
+    // Reset timeout each time we get a candidate
+    clearTimeout(iceCandidateTimeout);
+    iceCandidateTimeout = setTimeout(() => {
+      if (!gatheringComplete) {
+        showStatus('ICE gathering timed out - proceeding with available candidates');
+        gatheringComplete = true;
+        // Force proceed with connection
+        if (peer.iceGatheringState === 'gathering') {
+          sendState();
+        }
+      }
+    }, 5000); // 5 second timeout
   } else {
     showStatus('All ICE candidates sent.');
+    gatheringComplete = true;
+    clearTimeout(iceCandidateTimeout);
   }
 };
 peer.onicecandidateerror = (e) => {
   showStatus('ICE candidate error: ' + (e.errorText || e.type));
 };
 peer.onconnectionstatechange = () => {
-  showStatus('Peer connection state: ' + peer.connectionState);
+  const state = peer.connectionState;
+  const iceState = peer.iceConnectionState;
+  const stats = peer.getStats().then(stats => {
+    stats.forEach(report => {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+        showStatus(`Connection state: ${state}, ICE: ${iceState}, RTT: ${report.currentRoundTripTime}ms`);
+      }
+    });
+  });
+  
+  if (state === 'failed') {
+    showStatus('Connection failed - attempting to restart ICE');
+    peer.restartIce();
+  } else if (state === 'disconnected') {
+    showStatus('Connection disconnected - waiting for reconnection...');
+    // Attempt to reconnect after a short delay
+    setTimeout(() => {
+      if (peer.connectionState === 'disconnected') {
+        showStatus('Attempting to restart connection...');
+        peer.restartIce();
+      }
+    }, 2000);
+  }
 };
 peer.onsignalingstatechange = () => {
   showStatus('Signaling state: ' + peer.signalingState);
