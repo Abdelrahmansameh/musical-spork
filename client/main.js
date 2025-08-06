@@ -1,4 +1,4 @@
-const SIGNALING_URL = 'wss://your-signaling-server.example.com';
+const SIGNALING_URL = 'wss://musical-spork.onrender.com';
 
 const square = document.getElementById('square');
 let color = 'red';
