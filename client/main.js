@@ -71,6 +71,36 @@ function sendState() {
   }
 }
 
+// --- Chat Room Logic ---
+const chatLog = document.getElementById('chat-log');
+const chatForm = document.getElementById('chat-form');
+const chatInput = document.getElementById('chat-input');
+let clientLabel = null;
+
+function appendChatMessage(sender, text) {
+  const div = document.createElement('div');
+  div.textContent = sender + ': ' + text;
+  div.style.marginBottom = '4px';
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function sendChatMessage(text) {
+  if (dc && dc.readyState === 'open') {
+    dc.send(JSON.stringify({ type: 'chat', text }));
+    appendChatMessage(clientLabel, text);
+  }
+}
+
+chatForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const text = chatInput.value.trim();
+  if (text) {
+    sendChatMessage(text);
+    chatInput.value = '';
+  }
+});
+
 function setupDataChannel(channel) {
   dc = channel;
   showStatus('DataChannel created: ' + dc.label);
@@ -78,6 +108,8 @@ function setupDataChannel(channel) {
     showStatus('DataChannel open! Syncing state...');
     sendState();
     syncInterval = setInterval(sendState, 1000);
+    // Set client label after connection established
+    clientLabel = initiator ? 'Client 1' : 'Client 2';
   };
   dc.onclose = () => {
     showStatus('DataChannel closed.');
@@ -98,6 +130,10 @@ function setupDataChannel(channel) {
       color = msg.color;
       square.style.background = color;
       showStatus('Received state update: color=' + color);
+    } else if (msg.type === 'chat') {
+      // Show message from the other client
+      const sender = initiator ? 'Client 2' : 'Client 1';
+      appendChatMessage(sender, msg.text);
     }
   };
 }

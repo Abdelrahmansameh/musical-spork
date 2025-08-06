@@ -14,6 +14,13 @@
 </head>
 <body>
   <div id="square"></div>
+  <div id="chat-container">
+    <div id="chat-log" style="height:150px;overflow-y:auto;border:1px solid #ccc;padding:8px;margin:12px 0 8px 0;background:#fafafa;"></div>
+    <form id="chat-form" style="display:flex;gap:4px;">
+      <input id="chat-input" type="text" placeholder="Type a message..." autocomplete="off" style="flex:1;padding:6px;font-size:16px;" />
+      <button type="submit" style="padding:6px 12px;font-size:16px;">Send</button>
+    </form>
+  </div>
   <script src="main.js"></script>
 </body>
 </html>
