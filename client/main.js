@@ -51,7 +51,10 @@ const peer = new RTCPeerConnection({
     {
       urls: [
         'turn:openrelay.metered.ca:80?transport=udp',
-        'turn:openrelay.metered.ca:80?transport=tcp'
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        // Fallback to raw IP if DNS lookup fails
+        'turn:149.153.102.212:80?transport=udp',
+        'turn:149.153.102.212:80?transport=tcp'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject'
@@ -59,7 +62,10 @@ const peer = new RTCPeerConnection({
     {
       urls: [
         'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443'
+        'turns:openrelay.metered.ca:443',
+        // Fallback to raw IP for TLS port
+        'turn:149.153.102.212:443?transport=tcp',
+        'turns:149.153.102.212:443'
       ],
       username: 'openrelayproject',
       credential: 'openrelayproject'
