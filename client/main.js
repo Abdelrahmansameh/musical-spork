@@ -2,6 +2,7 @@ const SIGNALING_URL = 'wss://musical-spork.onrender.com';
 
 const square = document.getElementById('square');
 let color = 'red';
+let syncInterval;
 let room = prompt('Room code?');
 if (!room) {
   room = Math.random().toString(36).substr(2, 4);
@@ -26,10 +27,30 @@ peer.onicecandidate = ({ candidate }) => {
   }
 };
 
+function sendState() {
+  if (dc && dc.readyState === 'open') {
+    dc.send(JSON.stringify({ type: 'state', color }));
+  }
+}
+
 function setupDataChannel(channel) {
   dc = channel;
+  dc.onopen = () => {
+    sendState();
+    syncInterval = setInterval(sendState, 1000);
+  };
+  dc.onclose = () => clearInterval(syncInterval);
   dc.onmessage = (e) => {
-    if (e.data === 'toggle') toggle();
+    let msg;
+    try {
+      msg = JSON.parse(e.data);
+    } catch {
+      return;
+    }
+    if (msg.type === 'state') {
+      color = msg.color;
+      square.style.background = color;
+    }
   };
 }
 
@@ -70,7 +91,5 @@ function toggle() {
 
 square.onclick = () => {
   toggle();
-  if (dc && dc.readyState === 'open') {
-    dc.send('toggle');
-  }
+  sendState();
 };
