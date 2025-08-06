@@ -47,10 +47,25 @@ ws.onclose = () => {
 const peer = new RTCPeerConnection({
   iceServers: [
     { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+    // Use TURN over UDP and TCP for port 80, and TCP/TLS on port 443
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80?transport=udp',
+        'turn:openrelay.metered.ca:80?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ],
-  iceTransportPolicy: 'all',
+  iceTransportPolicy: 'relay',
   iceCandidatePoolSize: 10,
   iceCheckMinInterval: 500,
 });
