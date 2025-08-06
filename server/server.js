@@ -21,7 +21,12 @@ wss.on('connection', (ws) => {
       }
       ws.room = room;
       if (rooms[room].length === 2) {
-        rooms[room].forEach((s) => s.send(JSON.stringify({ type: 'ready' })));
+        rooms[room][0].send(
+          JSON.stringify({ type: 'ready', initiator: true })
+        );
+        rooms[room][1].send(
+          JSON.stringify({ type: 'ready', initiator: false })
+        );
       }
     } else if (type === 'signal') {
       const peers = rooms[room] || [];

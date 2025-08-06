@@ -18,6 +18,7 @@ ws.onopen = () => {
 
 const peer = new RTCPeerConnection();
 let dc;
+let initiator = false;
 
 peer.onicecandidate = ({ candidate }) => {
   if (candidate) {
@@ -37,11 +38,14 @@ peer.ondatachannel = (e) => setupDataChannel(e.channel);
 ws.onmessage = async (event) => {
   const msg = JSON.parse(event.data);
   if (msg.type === 'ready') {
-    dc = peer.createDataChannel('toggle');
-    setupDataChannel(dc);
-    const offer = await peer.createOffer();
-    await peer.setLocalDescription(offer);
-    ws.send(JSON.stringify({ type: 'signal', room, data: offer }));
+    initiator = msg.initiator;
+    if (initiator) {
+      dc = peer.createDataChannel('toggle');
+      setupDataChannel(dc);
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'signal', room, data: offer }));
+    }
   } else if (msg.type === 'signal') {
     if (msg.data.type === 'offer') {
       await peer.setRemoteDescription(msg.data);
@@ -49,7 +53,10 @@ ws.onmessage = async (event) => {
       await peer.setLocalDescription(answer);
       ws.send(JSON.stringify({ type: 'signal', room, data: answer }));
     } else if (msg.data.type === 'answer') {
-      await peer.setRemoteDescription(msg.data);
+      // Avoid applying an answer twice in glare situations
+      if (peer.signalingState !== 'stable') {
+        await peer.setRemoteDescription(msg.data);
+      }
     } else if (msg.data.candidate) {
       await peer.addIceCandidate(msg.data);
     }
